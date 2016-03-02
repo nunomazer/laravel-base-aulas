@@ -48,6 +48,13 @@ class Blueprint
     public $collation;
 
     /**
+     * Whether to make the table temporary.
+     *
+     * @var bool
+     */
+    public $temporary = false;
+
+    /**
      * Create a new schema blueprint.
      *
      * @param  string  $table
@@ -181,6 +188,16 @@ class Blueprint
     }
 
     /**
+     * Indicate that the table needs to be temporary.
+     *
+     * @return void
+     */
+    public function temporary()
+    {
+        $this->temporary = true;
+    }
+
+    /**
      * Indicate that the table should be dropped.
      *
      * @return \Illuminate\Support\Fluent
@@ -261,7 +278,7 @@ class Blueprint
     /**
      * Indicate that the given foreign key should be dropped.
      *
-     * @param  string  $index
+     * @param  string|array  $index
      * @return \Illuminate\Support\Fluent
      */
     public function dropForeign($index)
@@ -762,9 +779,7 @@ class Blueprint
      */
     public function nullableTimestamps()
     {
-        $this->timestamp('created_at')->nullable();
-
-        $this->timestamp('updated_at')->nullable();
+        return $this->timestamps();
     }
 
     /**
@@ -774,9 +789,9 @@ class Blueprint
      */
     public function timestamps()
     {
-        $this->timestamp('created_at');
+        $this->timestamp('created_at')->nullable();
 
-        $this->timestamp('updated_at');
+        $this->timestamp('updated_at')->nullable();
     }
 
     /**
@@ -786,9 +801,9 @@ class Blueprint
      */
     public function timestampsTz()
     {
-        $this->timestampTz('created_at');
+        $this->timestampTz('created_at')->nullable();
 
-        $this->timestampTz('updated_at');
+        $this->timestampTz('updated_at')->nullable();
     }
 
     /**
@@ -810,6 +825,17 @@ class Blueprint
     public function binary($column)
     {
         return $this->addColumn('binary', $column);
+    }
+
+    /**
+     * Create a new uuid column on the table.
+     *
+     * @param  string  $column
+     * @return \Illuminate\Support\Fluent
+     */
+    public function uuid($column)
+    {
+        return $this->addColumn('uuid', $column);
     }
 
     /**
@@ -906,7 +932,7 @@ class Blueprint
      * @param  array   $parameters
      * @return \Illuminate\Support\Fluent
      */
-    protected function addColumn($type, $name, array $parameters = [])
+    public function addColumn($type, $name, array $parameters = [])
     {
         $attributes = array_merge(compact('type', 'name'), $parameters);
 
@@ -1006,7 +1032,7 @@ class Blueprint
     public function getChangedColumns()
     {
         return array_filter($this->columns, function ($column) {
-            return ! ! $column->change;
+            return (bool) $column->change;
         });
     }
 }

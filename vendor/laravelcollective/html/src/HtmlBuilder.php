@@ -1,438 +1,542 @@
-<?php namespace Collective\Html;
+<?php
 
-use Illuminate\Routing\UrlGenerator;
+namespace Collective\Html;
+
+use BadMethodCallException;
+use Illuminate\Support\HtmlString;
+use Illuminate\Contracts\View\Factory;
 use Illuminate\Support\Traits\Macroable;
+use Illuminate\Contracts\Routing\UrlGenerator;
 
-class HtmlBuilder {
+class HtmlBuilder
+{
 
-	use Macroable;
+    use Macroable, Componentable {
+        Macroable::__call as macroCall;
+        Componentable::__call as componentCall;
+    }
 
-	/**
-	 * The URL generator instance.
-	 *
-	 * @var \Illuminate\Routing\UrlGenerator
-	 */
-	protected $url;
+    /**
+     * The URL generator instance.
+     *
+     * @var \Illuminate\Contracts\Routing\UrlGenerator
+     */
+    protected $url;
 
-	/**
-	 * Create a new HTML builder instance.
-	 *
-	 * @param  \Illuminate\Routing\UrlGenerator  $url
-	 * @return void
-	 */
-	public function __construct(UrlGenerator $url = null)
-	{
-		$this->url = $url;
-	}
+    /**
+     * The View Factory instance.
+     *
+     * @var \Illuminate\Contracts\View\Factory
+     */
+    protected $view;
 
-	/**
-	 * Convert an HTML string to entities.
-	 *
-	 * @param  string  $value
-	 * @return string
-	 */
-	public function entities($value)
-	{
-		return htmlentities($value, ENT_QUOTES, 'UTF-8', false);
-	}
+    /**
+     * Create a new HTML builder instance.
+     *
+     * @param \Illuminate\Contracts\Routing\UrlGenerator $url
+     * @param \Illuminate\Contracts\View\Factory         $view
+     */
+    public function __construct(UrlGenerator $url = null, Factory $view)
+    {
+        $this->url = $url;
+        $this->view = $view;
+    }
 
-	/**
-	 * Convert entities to HTML characters.
-	 *
-	 * @param  string  $value
-	 * @return string
-	 */
-	public function decode($value)
-	{
-		return html_entity_decode($value, ENT_QUOTES, 'UTF-8');
-	}
+    /**
+     * Convert an HTML string to entities.
+     *
+     * @param string $value
+     *
+     * @return string
+     */
+    public function entities($value)
+    {
+        return htmlentities($value, ENT_QUOTES, 'UTF-8', false);
+    }
 
-	/**
-	 * Generate a link to a JavaScript file.
-	 *
-	 * @param  string  $url
-	 * @param  array   $attributes
-	 * @param  bool    $secure
-	 * @return string
-	 */
-	public function script($url, $attributes = array(), $secure = null)
-	{
-		$attributes['src'] = $this->url->asset($url, $secure);
+    /**
+     * Convert entities to HTML characters.
+     *
+     * @param string $value
+     *
+     * @return string
+     */
+    public function decode($value)
+    {
+        return html_entity_decode($value, ENT_QUOTES, 'UTF-8');
+    }
 
-		return '<script'.$this->attributes($attributes).'></script>'.PHP_EOL;
-	}
+    /**
+     * Generate a link to a JavaScript file.
+     *
+     * @param string $url
+     * @param array  $attributes
+     * @param bool   $secure
+     *
+     * @return \Illuminate\Support\HtmlString
+     */
+    public function script($url, $attributes = [], $secure = null)
+    {
+        $attributes['src'] = $this->url->asset($url, $secure);
 
-	/**
-	 * Generate a link to a CSS file.
-	 *
-	 * @param  string  $url
-	 * @param  array   $attributes
-	 * @param  bool    $secure
-	 * @return string
-	 */
-	public function style($url, $attributes = array(), $secure = null)
-	{
-		$defaults = array('media' => 'all', 'type' => 'text/css', 'rel' => 'stylesheet');
+        return $this->toHtmlString('<script' . $this->attributes($attributes) . '></script>' . PHP_EOL);
+    }
 
-		$attributes = $attributes + $defaults;
+    /**
+     * Generate a link to a CSS file.
+     *
+     * @param string $url
+     * @param array  $attributes
+     * @param bool   $secure
+     *
+     * @return \Illuminate\Support\HtmlString
+     */
+    public function style($url, $attributes = [], $secure = null)
+    {
+        $defaults = ['media' => 'all', 'type' => 'text/css', 'rel' => 'stylesheet'];
 
-		$attributes['href'] = $this->url->asset($url, $secure);
+        $attributes = $attributes + $defaults;
 
-		return '<link'.$this->attributes($attributes).'>'.PHP_EOL;
-	}
+        $attributes['href'] = $this->url->asset($url, $secure);
 
-	/**
-	 * Generate an HTML image element.
-	 *
-	 * @param  string  $url
-	 * @param  string  $alt
-	 * @param  array   $attributes
-	 * @param  bool    $secure
-	 * @return string
-	 */
-	public function image($url, $alt = null, $attributes = array(), $secure = null)
-	{
-		$attributes['alt'] = $alt;
+        return $this->toHtmlString('<link' . $this->attributes($attributes) . '>' . PHP_EOL);
+    }
 
-		return '<img src="'.$this->url->asset($url, $secure).'"'.$this->attributes($attributes).'>';
-	}
+    /**
+     * Generate an HTML image element.
+     *
+     * @param string $url
+     * @param string $alt
+     * @param array  $attributes
+     * @param bool   $secure
+     *
+     * @return \Illuminate\Support\HtmlString
+     */
+    public function image($url, $alt = null, $attributes = [], $secure = null)
+    {
+        $attributes['alt'] = $alt;
 
-	/**
-	 * Generate a link to a Favicon file.
-	 *
-	 * @param  string  $url
-	 * @param  array   $attributes
-	 * @param  bool    $secure
-	 * @return string
-	 */
-	public function favicon($url, $attributes = array(), $secure = null)
-	{
-		$defaults = array('rel' => 'shortcut icon', 'type' => 'image/x-icon');
+        return $this->toHtmlString('<img src="' . $this->url->asset($url,
+            $secure) . '"' . $this->attributes($attributes) . '>');
+    }
 
-		$attributes = $attributes + $defaults;
+    /**
+     * Generate a link to a Favicon file.
+     *
+     * @param string $url
+     * @param array  $attributes
+     * @param bool   $secure
+     *
+     * @return \Illuminate\Support\HtmlString
+     */
+    public function favicon($url, $attributes = [], $secure = null)
+    {
+        $defaults = ['rel' => 'shortcut icon', 'type' => 'image/x-icon'];
 
-		$attributes['href'] = $this->url->asset($url, $secure);
+        $attributes = $attributes + $defaults;
 
-		return '<link'.$this->attributes($attributes).'>'.PHP_EOL;
-	}
+        $attributes['href'] = $this->url->asset($url, $secure);
 
-	/**
-	 * Generate a HTML link.
-	 *
-	 * @param  string  $url
-	 * @param  string  $title
-	 * @param  array   $attributes
-	 * @param  bool    $secure
-	 * @return string
-	 */
-	public function link($url, $title = null, $attributes = array(), $secure = null)
-	{
-		$url = $this->url->to($url, array(), $secure);
+        return $this->toHtmlString('<link' . $this->attributes($attributes) . '>' . PHP_EOL);
+    }
 
-		if (is_null($title) || $title === false) $title = $url;
+    /**
+     * Generate a HTML link.
+     *
+     * @param string $url
+     * @param string $title
+     * @param array  $attributes
+     * @param bool   $secure
+     *
+     * @return \Illuminate\Support\HtmlString
+     */
+    public function link($url, $title = null, $attributes = [], $secure = null)
+    {
+        $url = $this->url->to($url, [], $secure);
 
-		return '<a href="'.$url.'"'.$this->attributes($attributes).'>'.$this->entities($title).'</a>';
-	}
+        if (is_null($title) || $title === false) {
+            $title = $url;
+        }
 
-	/**
-	 * Generate a HTTPS HTML link.
-	 *
-	 * @param  string  $url
-	 * @param  string  $title
-	 * @param  array   $attributes
-	 * @return string
-	 */
-	public function secureLink($url, $title = null, $attributes = array())
-	{
-		return $this->link($url, $title, $attributes, true);
-	}
+        return $this->toHtmlString('<a href="' . $url . '"' . $this->attributes($attributes) . '>' . $this->entities($title) . '</a>');
+    }
 
-	/**
-	 * Generate a HTML link to an asset.
-	 *
-	 * @param  string  $url
-	 * @param  string  $title
-	 * @param  array   $attributes
-	 * @param  bool    $secure
-	 * @return string
-	 */
-	public function linkAsset($url, $title = null, $attributes = array(), $secure = null)
-	{
-		$url = $this->url->asset($url, $secure);
+    /**
+     * Generate a HTTPS HTML link.
+     *
+     * @param string $url
+     * @param string $title
+     * @param array  $attributes
+     *
+     * @return \Illuminate\Support\HtmlString
+     */
+    public function secureLink($url, $title = null, $attributes = [])
+    {
+        return $this->link($url, $title, $attributes, true);
+    }
 
-		return $this->link($url, $title ?: $url, $attributes, $secure);
-	}
+    /**
+     * Generate a HTML link to an asset.
+     *
+     * @param string $url
+     * @param string $title
+     * @param array  $attributes
+     * @param bool   $secure
+     *
+     * @return \Illuminate\Support\HtmlString
+     */
+    public function linkAsset($url, $title = null, $attributes = [], $secure = null)
+    {
+        $url = $this->url->asset($url, $secure);
 
-	/**
-	 * Generate a HTTPS HTML link to an asset.
-	 *
-	 * @param  string  $url
-	 * @param  string  $title
-	 * @param  array   $attributes
-	 * @return string
-	 */
-	public function linkSecureAsset($url, $title = null, $attributes = array())
-	{
-		return $this->linkAsset($url, $title, $attributes, true);
-	}
+        return $this->link($url, $title ?: $url, $attributes, $secure);
+    }
 
-	/**
-	 * Generate a HTML link to a named route.
-	 *
-	 * @param  string  $name
-	 * @param  string  $title
-	 * @param  array   $parameters
-	 * @param  array   $attributes
-	 * @return string
-	 */
-	public function linkRoute($name, $title = null, $parameters = array(), $attributes = array())
-	{
-		return $this->link($this->url->route($name, $parameters), $title, $attributes);
-	}
+    /**
+     * Generate a HTTPS HTML link to an asset.
+     *
+     * @param string $url
+     * @param string $title
+     * @param array  $attributes
+     *
+     * @return \Illuminate\Support\HtmlString
+     */
+    public function linkSecureAsset($url, $title = null, $attributes = [])
+    {
+        return $this->linkAsset($url, $title, $attributes, true);
+    }
 
-	/**
-	 * Generate a HTML link to a controller action.
-	 *
-	 * @param  string  $action
-	 * @param  string  $title
-	 * @param  array   $parameters
-	 * @param  array   $attributes
-	 * @return string
-	 */
-	public function linkAction($action, $title = null, $parameters = array(), $attributes = array())
-	{
-		return $this->link($this->url->action($action, $parameters), $title, $attributes);
-	}
+    /**
+     * Generate a HTML link to a named route.
+     *
+     * @param string $name
+     * @param string $title
+     * @param array  $parameters
+     * @param array  $attributes
+     *
+     * @return \Illuminate\Support\HtmlString
+     */
+    public function linkRoute($name, $title = null, $parameters = [], $attributes = [])
+    {
+        return $this->link($this->url->route($name, $parameters), $title, $attributes);
+    }
 
-	/**
-	 * Generate a HTML link to an email address.
-	 *
-	 * @param  string  $email
-	 * @param  string  $title
-	 * @param  array   $attributes
-	 * @return string
-	 */
-	public function mailto($email, $title = null, $attributes = array())
-	{
-		$email = $this->email($email);
+    /**
+     * Generate a HTML link to a controller action.
+     *
+     * @param string $action
+     * @param string $title
+     * @param array  $parameters
+     * @param array  $attributes
+     *
+     * @return \Illuminate\Support\HtmlString
+     */
+    public function linkAction($action, $title = null, $parameters = [], $attributes = [])
+    {
+        return $this->link($this->url->action($action, $parameters), $title, $attributes);
+    }
 
-		$title = $title ?: $email;
+    /**
+     * Generate a HTML link to an email address.
+     *
+     * @param string $email
+     * @param string $title
+     * @param array  $attributes
+     *
+     * @return \Illuminate\Support\HtmlString
+     */
+    public function mailto($email, $title = null, $attributes = [])
+    {
+        $email = $this->email($email);
 
-		$email = $this->obfuscate('mailto:') . $email;
+        $title = $title ?: $email;
 
-		return '<a href="'.$email.'"'.$this->attributes($attributes).'>'.$this->entities($title).'</a>';
-	}
+        $email = $this->obfuscate('mailto:') . $email;
 
-	/**
-	 * Obfuscate an e-mail address to prevent spam-bots from sniffing it.
-	 *
-	 * @param  string  $email
-	 * @return string
-	 */
-	public function email($email)
-	{
-		return str_replace('@', '&#64;', $this->obfuscate($email));
-	}
+        return $this->toHtmlString('<a href="' . $email . '"' . $this->attributes($attributes) . '>' . $this->entities($title) . '</a>');
+    }
 
-	/**
-	 * Generate an ordered list of items.
-	 *
-	 * @param  array   $list
-	 * @param  array   $attributes
-	 * @return string
-	 */
-	public function ol($list, $attributes = array())
-	{
-		return $this->listing('ol', $list, $attributes);
-	}
+    /**
+     * Obfuscate an e-mail address to prevent spam-bots from sniffing it.
+     *
+     * @param string $email
+     *
+     * @return string
+     */
+    public function email($email)
+    {
+        return str_replace('@', '&#64;', $this->obfuscate($email));
+    }
 
-	/**
-	 * Generate an un-ordered list of items.
-	 *
-	 * @param  array   $list
-	 * @param  array   $attributes
-	 * @return string
-	 */
-	public function ul($list, $attributes = array())
-	{
-		return $this->listing('ul', $list, $attributes);
-	}
+    /**
+     * Generate an ordered list of items.
+     *
+     * @param array $list
+     * @param array $attributes
+     *
+     * @return \Illuminate\Support\HtmlString|string
+     */
+    public function ol($list, $attributes = [])
+    {
+        return $this->listing('ol', $list, $attributes);
+    }
 
-	/**
-	 * Generate a description list of items.
-	 *
-	 * @param  array   $list
-	 * @param  array   $attributes
-	 * @return string
-	 */
-	public function dl(array $list, array $attributes = [])
-	{
-		$attributes = $this->attributes($attributes);
+    /**
+     * Generate an un-ordered list of items.
+     *
+     * @param array $list
+     * @param array $attributes
+     *
+     * @return \Illuminate\Support\HtmlString|string
+     */
+    public function ul($list, $attributes = [])
+    {
+        return $this->listing('ul', $list, $attributes);
+    }
 
-		$html = "<dl{$attributes}>";
+    /**
+     * Generate a description list of items.
+     *
+     * @param array $list
+     * @param array $attributes
+     *
+     * @return \Illuminate\Support\HtmlString
+     */
+    public function dl(array $list, array $attributes = [])
+    {
+        $attributes = $this->attributes($attributes);
 
-		foreach ($list as $key => $value)
-		{
-			$html .= "<dt>$key</dt><dd>$value</dd>";
-		}
+        $html = "<dl{$attributes}>";
 
-		$html .= '</dl>';
+        foreach ($list as $key => $value) {
+            $value = (array) $value;
 
-		return $html;
-	}
+            $html .= "<dt>$key</dt>";
 
-	/**
-	 * Create a listing HTML element.
-	 *
-	 * @param  string  $type
-	 * @param  array   $list
-	 * @param  array   $attributes
-	 * @return string
-	 */
-	protected function listing($type, $list, $attributes = array())
-	{
-		$html = '';
+            foreach ($value as $v_key => $v_value) {
+                $html .= "<dd>$v_value</dd>";
+            }
+        }
 
-		if (count($list) == 0) return $html;
+        $html .= '</dl>';
 
-		// Essentially we will just spin through the list and build the list of the HTML
-		// elements from the array. We will also handled nested lists in case that is
-		// present in the array. Then we will build out the final listing elements.
-		foreach ($list as $key => $value)
-		{
-			$html .= $this->listingElement($key, $type, $value);
-		}
+        return $this->toHtmlString($html);
+    }
 
-		$attributes = $this->attributes($attributes);
+    /**
+     * Create a listing HTML element.
+     *
+     * @param string $type
+     * @param array  $list
+     * @param array  $attributes
+     *
+     * @return \Illuminate\Support\HtmlString|string
+     */
+    protected function listing($type, $list, $attributes = [])
+    {
+        $html = '';
 
-		return "<{$type}{$attributes}>{$html}</{$type}>";
-	}
+        if (count($list) == 0) {
+            return $html;
+        }
 
-	/**
-	 * Create the HTML for a listing element.
-	 *
-	 * @param  mixed    $key
-	 * @param  string  $type
-	 * @param  mixed   $value
-	 * @return string
-	 */
-	protected function listingElement($key, $type, $value)
-	{
-		if (is_array($value))
-		{
-			return $this->nestedListing($key, $type, $value);
-		}
-		else
-		{
-			return '<li>'.e($value).'</li>';
-		}
-	}
+        // Essentially we will just spin through the list and build the list of the HTML
+        // elements from the array. We will also handled nested lists in case that is
+        // present in the array. Then we will build out the final listing elements.
+        foreach ($list as $key => $value) {
+            $html .= $this->listingElement($key, $type, $value);
+        }
 
-	/**
-	 * Create the HTML for a nested listing attribute.
-	 *
-	 * @param  mixed    $key
-	 * @param  string  $type
-	 * @param  mixed   $value
-	 * @return string
-	 */
-	protected function nestedListing($key, $type, $value)
-	{
-		if (is_int($key))
-		{
-			return $this->listing($type, $value);
-		}
-		else
-		{
-			return '<li>'.$key.$this->listing($type, $value).'</li>';
-		}
-	}
+        $attributes = $this->attributes($attributes);
 
-	/**
-	 * Build an HTML attribute string from an array.
-	 *
-	 * @param  array  $attributes
-	 * @return string
-	 */
-	public function attributes($attributes)
-	{
-		$html = array();
+        return $this->toHtmlString("<{$type}{$attributes}>{$html}</{$type}>");
+    }
 
-		foreach ((array) $attributes as $key => $value)
-		{
-			$element = $this->attributeElement($key, $value);
+    /**
+     * Create the HTML for a listing element.
+     *
+     * @param mixed  $key
+     * @param string $type
+     * @param mixed  $value
+     *
+     * @return string
+     */
+    protected function listingElement($key, $type, $value)
+    {
+        if (is_array($value)) {
+            return $this->nestedListing($key, $type, $value);
+        } else {
+            return '<li>' . e($value) . '</li>';
+        }
+    }
 
-			if ( ! is_null($element)) $html[] = $element;
-		}
+    /**
+     * Create the HTML for a nested listing attribute.
+     *
+     * @param mixed  $key
+     * @param string $type
+     * @param mixed  $value
+     *
+     * @return string
+     */
+    protected function nestedListing($key, $type, $value)
+    {
+        if (is_int($key)) {
+            return $this->listing($type, $value);
+        } else {
+            return '<li>' . $key . $this->listing($type, $value) . '</li>';
+        }
+    }
 
-		return count($html) > 0 ? ' '.implode(' ', $html) : '';
-	}
+    /**
+     * Build an HTML attribute string from an array.
+     *
+     * @param array $attributes
+     *
+     * @return string
+     */
+    public function attributes($attributes)
+    {
+        $html = [];
 
-	/**
-	 * Build a single attribute element.
-	 *
-	 * @param  string  $key
-	 * @param  string  $value
-	 * @return string
-	 */
-	protected function attributeElement($key, $value)
-	{
-		// For numeric keys we will assume that the key and the value are the same
-		// as this will convert HTML attributes such as "required" to a correct
-		// form like required="required" instead of using incorrect numerics.
-		if (is_numeric($key)) $key = $value;
+        foreach ((array) $attributes as $key => $value) {
+            $element = $this->attributeElement($key, $value);
 
-		if ( ! is_null($value)) return $key.'="'.e($value).'"';
-	}
+            if (! is_null($element)) {
+                $html[] = $element;
+            }
+        }
 
-	/**
-	 * Obfuscate a string to prevent spam-bots from sniffing it.
-	 *
-	 * @param  string  $value
-	 * @return string
-	 */
-	public function obfuscate($value)
-	{
-		$safe = '';
+        return count($html) > 0 ? ' ' . implode(' ', $html) : '';
+    }
 
-		foreach (str_split($value) as $letter)
-		{
-			if (ord($letter) > 128) return $letter;
+    /**
+     * Build a single attribute element.
+     *
+     * @param string $key
+     * @param string $value
+     *
+     * @return string
+     */
+    protected function attributeElement($key, $value)
+    {
+        // For numeric keys we will assume that the key and the value are the same
+        // as this will convert HTML attributes such as "required" to a correct
+        // form like required="required" instead of using incorrect numerics.
+        if (is_numeric($key)) {
+            $key = $value;
+        }
 
-			// To properly obfuscate the value, we will randomly convert each letter to
-			// its entity or hexadecimal representation, keeping a bot from sniffing
-			// the randomly obfuscated letters out of the string on the responses.
-			switch (rand(1, 3))
-			{
-				case 1:
-					$safe .= '&#'.ord($letter).';'; break;
+        if (! is_null($value)) {
+            return $key . '="' . e($value) . '"';
+        }
+    }
 
-				case 2:
-					$safe .= '&#x'.dechex(ord($letter)).';'; break;
+    /**
+     * Obfuscate a string to prevent spam-bots from sniffing it.
+     *
+     * @param string $value
+     *
+     * @return string
+     */
+    public function obfuscate($value)
+    {
+        $safe = '';
 
-				case 3:
-					$safe .= $letter;
-			}
-		}
+        foreach (str_split($value) as $letter) {
+            if (ord($letter) > 128) {
+                return $letter;
+            }
 
-		return $safe;
-	}
+            // To properly obfuscate the value, we will randomly convert each letter to
+            // its entity or hexadecimal representation, keeping a bot from sniffing
+            // the randomly obfuscated letters out of the string on the responses.
+            switch (rand(1, 3)) {
+                case 1:
+                    $safe .= '&#' . ord($letter) . ';';
+                    break;
 
-	/**
-	 * Generate a meta tag.
-	 *
-	 * @param  string  $name
-	 * @param  string  $content
-	 * @param  array   $attributes
-	 * @return string
-	 */
-	public function meta($name, $content, array $attributes = [])
-	{
-		$defaults = compact('name', 'content');
+                case 2:
+                    $safe .= '&#x' . dechex(ord($letter)) . ';';
+                    break;
 
-		$attributes = array_merge($defaults, $attributes);
+                case 3:
+                    $safe .= $letter;
+            }
+        }
 
-		return '<meta'.$this->attributes($attributes).'>'.PHP_EOL;
-	}
+        return $safe;
+    }
 
+    /**
+     * Generate a meta tag.
+     *
+     * @param string $name
+     * @param string $content
+     * @param array  $attributes
+     *
+     * @return \Illuminate\Support\HtmlString
+     */
+    public function meta($name, $content, array $attributes = [])
+    {
+        $defaults = compact('name', 'content');
+
+        $attributes = array_merge($defaults, $attributes);
+
+        return $this->toHtmlString('<meta' . $this->attributes($attributes) . '>' . PHP_EOL);
+    }
+
+    /**
+     * Generate an html tag.
+     *
+     * @param string $tag
+     * @param mixed $content
+     * @param array  $attributes
+     *
+     * @return \Illuminate\Support\HtmlString
+     */
+    public function tag($tag, $content, array $attributes = [])
+    {
+        $content = is_array($content) ? implode(PHP_EOL, $content) : $content;
+        return $this->toHtmlString('<' . $tag . $this->attributes($attributes) . '>' . PHP_EOL . $this->toHtmlString($content) . PHP_EOL . '</' . $tag . '>' . PHP_EOL);
+    }
+
+    /**
+     * Transform the string to an Html serializable object
+     *
+     * @param $html
+     *
+     * @return \Illuminate\Support\HtmlString
+     */
+    protected function toHtmlString($html)
+    {
+        return new HtmlString($html);
+    }
+
+    /**
+     * Dynamically handle calls to the class.
+     *
+     * @param  string $method
+     * @param  array  $parameters
+     *
+     * @return \Illuminate\Contracts\View\View|mixed
+     *
+     * @throws \BadMethodCallException
+     */
+    public function __call($method, $parameters)
+    {
+        try {
+            return $this->componentCall($method, $parameters);
+        } catch (BadMethodCallException $e) {
+            //
+        }
+
+        try {
+            return $this->macroCall($method, $parameters);
+        } catch (BadMethodCallException $e) {
+            //
+        }
+
+        throw new BadMethodCallException("Method {$method} does not exist.");
+    }
 }
